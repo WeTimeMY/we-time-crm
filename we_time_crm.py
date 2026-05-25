@@ -39,25 +39,50 @@ if menu == "🏠 Dashboard":
     col1.metric("Total Customers", len(customers))
     col2.metric("Total Points", int(customers['total_points'].sum()) if not customers.empty else 0)
 
-# Add New Customer
+# ================== ADD NEW CUSTOMER ==================
 elif menu == "➕ Add Customer":
     st.subheader("Register New Customer")
-    name = st.text_input("Full Name *")
-    phone = st.text_input("Phone Number *")
-    email = st.text_input("Email")
-    birthday = st.date_input("Birthday")
     
-    if st.button("Register + RM10 Sign-up Voucher"):
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Full Name *")
+        phone = st.text_input("Phone Number *")
+        email = st.text_input("Email (Optional)")
+    with col2:
+        # Fixed Birthday Picker - Allow years from 1950 to current year
+        birthday = st.date_input(
+            "Birthday", 
+            value=date(2000, 1, 1),
+            min_value=date(1950, 1, 1),   # Earliest year
+            max_value=date.today()         # Cannot choose future date
+        )
+        outlet = st.selectbox("Registered At", outlets)
+    
+    if st.button("Register + Give RM10 Sign-up Voucher", type="primary"):
         if name and phone:
             new_id = 1000 + len(customers) + 1
+            
             new_row = pd.DataFrame([{
-                'customer_id': new_id, 'name': name, 'phone': phone, 'email': email,
-                'birthday': str(birthday), 'join_date': str(date.today()),
-                'total_points': 10, 'sign_up_voucher_used': False
+                'customer_id': new_id,
+                'name': name.strip(),
+                'phone': phone.strip(),
+                'email': email.strip() if email else "",
+                'birthday': str(birthday),
+                'join_date': str(date.today()),
+                'total_points': 10,
+                'sign_up_voucher_used': False
             }])
+            
             customers = pd.concat([customers, new_row], ignore_index=True)
             customers.to_csv(CUSTOMERS_FILE, index=False)
-            st.success(f"Customer {new_id} registered! RM10 Voucher Issued.")
+            
+            st.success(f"""
+            🎉 **Customer Registered Successfully!**
+            **Customer ID:** {new_id}
+            **RM10 Sign-up Voucher Issued**
+            """)
+        else:
+            st.error("❌ Name and Phone Number are required!")
 
 # Record Spending
 elif menu == "💰 Record Spending":
