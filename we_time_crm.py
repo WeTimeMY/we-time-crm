@@ -6,6 +6,27 @@ import os
 st.set_page_config(page_title="We Time CRM", layout="wide")
 st.title("🎬 We Time Private Movie Cafe - CRM System")
 
+# ================== ADMIN LOGIN ==================
+if 'is_admin' not in st.session_state:
+    st.session_state.is_admin = False
+
+PASSWORD = "Wetime888"   # ← CHANGE THIS TO YOUR OWN SECURE PASSWORD
+
+with st.sidebar:
+    st.subheader("🔑 Admin Access")
+    if not st.session_state.is_admin:
+        admin_pass = st.text_input("Enter Admin Password", type="password")
+        if st.button("Login as Admin"):
+            if admin_pass == PASSWORD:
+                st.session_state.is_admin = True
+                st.success("✅ Admin Mode Activated")
+            else:
+                st.error("❌ Incorrect Password")
+    else:
+        st.success("✅ Admin Mode Active")
+        if st.button("Logout Admin Mode"):
+            st.session_state.is_admin = False
+
 # File paths
 CUSTOMERS_FILE = "customers.csv"
 TRANSACTIONS_FILE = "transactions.csv"
@@ -81,16 +102,13 @@ elif menu == "➕ Add New Customer":
                 'email': email.strip() if email else "", 
                 'birthday': str(birthday),
                 'join_date': str(date.today()), 
-                'total_points': 0,                    # Changed: No points given
-                'sign_up_voucher_redeemed': False,
+                'total_points': 0,
+                'sign_up_voucher_redeemed': False, 
                 'last_birthday_voucher_year': 0
             }])
             customers = pd.concat([customers, new_row], ignore_index=True)
             customers.to_csv(CUSTOMERS_FILE, index=False)
-            st.success(f"""
-            ✅ Customer ID **{new_id}** registered successfully at {outlet}!
-            🎟️ **RM10 Sign-up Voucher Issued** (Redeemable once)
-            """)
+            st.success(f"✅ Customer ID **{new_id}** registered! RM10 Sign-up Voucher Issued.")
         else:
             st.error("Name and Phone are required!")
 
@@ -129,7 +147,6 @@ elif menu == "💰 Record Spending":
 elif menu == "🎟️ Redeem Reward":
     st.subheader("🎟️ Redeem Rewards")
     phone_input = st.text_input("Customer Phone Number")
-    
     if phone_input:
         matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
         if not matching.empty:
@@ -139,10 +156,9 @@ elif menu == "🎟️ Redeem Reward":
             
             st.write(f"**Customer:** {cust['name']} | **Current Points:** {cust['total_points']}")
             
-            # === Vouchers ===
+            # Vouchers
             st.write("### Vouchers")
             colA, colB = st.columns(2)
-            
             with colA:
                 if st.button("Redeem RM10 Sign-up Voucher"):
                     if not cust['sign_up_voucher_redeemed']:
@@ -151,8 +167,7 @@ elif menu == "🎟️ Redeem Reward":
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ RM10 Sign-up Voucher Redeemed!")
                     else:
-                        st.warning("Sign-up voucher already redeemed.")
-            
+                        st.warning("Already redeemed.")
             with colB:
                 if st.button("Redeem RM20 Birthday Voucher"):
                     if datetime.now().month == birthday_month and cust['last_birthday_voucher_year'] < current_year:
@@ -161,12 +176,11 @@ elif menu == "🎟️ Redeem Reward":
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ RM20 Birthday Voucher Redeemed!")
                     else:
-                        st.error("Not eligible for Birthday Voucher now.")
+                        st.error("Not eligible now.")
             
-            # === Point-based Rewards ===
+            # Point Rewards
             st.write("### Point-Based Rewards")
             col1, col2, col3 = st.columns(3)
-            
             with col1:
                 if st.button("1 Cup Drink (-300 pts)"):
                     if cust['total_points'] >= 300:
@@ -176,7 +190,6 @@ elif menu == "🎟️ Redeem Reward":
                         st.success("✅ 1 Cup Drink Redeemed!")
                     else:
                         st.error("Not enough points!")
-            
             with col2:
                 if st.button("1 Hour Nintendo Switch (-500 pts)"):
                     if cust['total_points'] >= 500:
@@ -186,7 +199,6 @@ elif menu == "🎟️ Redeem Reward":
                         st.success("✅ 1 Hour Nintendo Switch Redeemed!")
                     else:
                         st.error("Not enough points!")
-            
             with col3:
                 if st.button("1 Hour Free Small Room (-1000 pts)"):
                     if cust['total_points'] >= 1000:
@@ -199,7 +211,7 @@ elif menu == "🎟️ Redeem Reward":
         else:
             st.error("Customer not found.")
 
-# ================== Other Sections (Customer Record, Birthday, etc.) ==================
+# ================== CUSTOMER RECORD ==================
 elif menu == "👤 Customer Record":
     st.subheader("Customer Full Record")
     phone_input = st.text_input("Enter Phone Number")
@@ -208,11 +220,11 @@ elif menu == "👤 Customer Record":
         if not matching.empty:
             cust = matching.iloc[0]
             st.write(f"**{cust['name']}** | ID: {cust['customer_id']} | Points: **{cust['total_points']}**")
-            st.write(f"Sign-up Voucher Redeemed: {'Yes' if cust['sign_up_voucher_redeemed'] else 'No'}")
             cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
             if not cust_trans.empty:
-                st.dataframe(cust_trans.sort_values('date', ascending=False))
+                st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
 
+# ================== BIRTHDAY NOTIFICATIONS ==================
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
     if customers.empty:
@@ -256,7 +268,7 @@ elif menu == "🎂 Birthday Notifications":
         if upcoming:
             st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
-# Search & Reports (kept short)
+# ================== SEARCH ==================
 elif menu == "🔍 Search":
     st.subheader("Search Customer")
     search = st.text_input("Name or Phone")
@@ -267,16 +279,22 @@ elif menu == "🔍 Search":
         ]
         st.dataframe(results, use_container_width=True)
 
+# ================== REPORTS (Admin Only Download) ==================
 elif menu == "📊 Reports":
-    st.subheader("All Customers")
+    st.subheader("📊 Reports")
     if not customers.empty:
         st.dataframe(customers, use_container_width=True)
-        csv = customers.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Customer List", csv, "we_time_customers.csv", "text/csv")
+        
+        if st.session_state.is_admin:
+            csv = customers.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Full Customer Report", csv, "we_time_customers.csv", "text/csv")
+        else:
+            st.info("📌 Download is available only in Admin Mode.")
+    else:
+        st.info("No customers yet.")
 
 st.sidebar.info("""
-**We Time CRM v1.9**
-• Sign-up: RM10 Voucher (once)
-• Rewards: Drink(300), Switch(500), Room(1000)
-• Birthday Voucher: Once per year in birthday month
+**We Time CRM v2.1**
+• Admin Mode Required for Download
+• Change password in the code
 """)
