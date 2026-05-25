@@ -10,19 +10,25 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 CUSTOMERS_FILE = "customers.csv"
 TRANSACTIONS_FILE = "transactions.csv"
 
-# Safe data loading
+# ================== SAFE DATA LOADING ==================
 def load_customers():
     if os.path.exists(CUSTOMERS_FILE):
         try:
             df = pd.read_csv(CUSTOMERS_FILE)
-            # Safely convert birthday
+            # Force phone and name to string
+            df['phone'] = df['phone'].astype(str).str.strip()
+            df['name'] = df['name'].astype(str).str.strip()
+            if 'email' in df.columns:
+                df['email'] = df['email'].astype(str).str.strip()
+            # Convert birthday safely
             if 'birthday' in df.columns:
                 df['birthday'] = pd.to_datetime(df['birthday'], errors='coerce').dt.date
             return df
         except Exception as e:
-            st.error(f"Error loading customers: {e}")
+            st.error(f"Error loading data: {e}")
             return pd.DataFrame()
     else:
+        # Create empty dataframe with correct columns
         return pd.DataFrame(columns=['customer_id', 'name', 'phone', 'email', 'birthday', 
                                      'join_date', 'total_points', 'sign_up_voucher_used'])
 
@@ -39,7 +45,6 @@ def load_transactions():
 customers = load_customers()
 transactions = load_transactions()
 
-# Outlets
 outlets = ["Austin Crest", "Eco Botanic"]
 
 # Sidebar
@@ -93,18 +98,19 @@ elif menu == "➕ Add New Customer":
             customers = pd.concat([customers, new_row], ignore_index=True)
             customers.to_csv(CUSTOMERS_FILE, index=False)
             
-            st.success(f"✅ Customer ID **{new_id}** registered at {outlet}! RM10 Sign-up Voucher Issued.")
+            st.success(f"✅ Customer ID **{new_id}** registered successfully at {outlet}! RM10 Sign-up Voucher Issued.")
         else:
             st.error("❌ Name and Phone Number are required!")
 
-# ================== RECORD SPENDING ==================
+# ================== RECORD SPENDING (Fixed) ==================
 elif menu == "💰 Record Spending":
     st.subheader("Record Spending / Visit")
     
     phone_input = st.text_input("Enter Customer Phone Number")
     
     if phone_input:
-        matching = customers[customers['phone'].str.contains(phone_input, case=False, na=False)]
+        # Safe string search
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
         
         if not matching.empty:
             customer = matching.iloc[0]
@@ -134,7 +140,7 @@ elif menu == "💰 Record Spending":
                 transactions = pd.concat([transactions, new_trans], ignore_index=True)
                 transactions.to_csv(TRANSACTIONS_FILE, index=False)
                 
-                st.success(f"✅ Recorded RM{amount} at {outlet} → +{points} points!")
+                st.success(f"✅ RM{amount} recorded at **{outlet}** → +{points} points!")
         else:
             st.error("❌ Customer not found with this phone number.")
 
@@ -157,7 +163,7 @@ elif menu == "🎟️ Vouchers":
     st.subheader("Issue Birthday Voucher (RM20)")
     phone_input = st.text_input("Customer Phone Number")
     if phone_input and st.button("Issue RM20 Birthday Voucher"):
-        matching = customers[customers['phone'].str.contains(phone_input, case=False, na=False)]
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
         if not matching.empty:
             st.success(f"✅ RM20 Birthday Voucher issued to **{matching.iloc[0]['name']}**")
         else:
@@ -174,8 +180,8 @@ elif menu == "📊 Reports":
         st.info("No customers yet.")
 
 st.sidebar.info("""
-**We Time CRM v1.2**
-• 1 Point = RM1 Spent
+**We Time CRM v1.3**
+• 1 Point = RM1
 • Sign-up: RM10
 • Birthday: RM20
 • Outlets: Austin Crest & Eco Botanic
