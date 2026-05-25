@@ -31,7 +31,8 @@ transactions = load_transactions()
 # Sidebar
 menu = st.sidebar.selectbox("Menu", ["🏠 Dashboard", "➕ Add Customer", "💰 Record Spending", "🔍 Search", "🎟️ Vouchers", "📊 Reports"])
 
-outlets = ["Main Outlet", "Branch 2", "Branch 3"]
+# Define your outlets
+outlets = ["Austin Crest", "Eco Botanic"]
 
 if menu == "🏠 Dashboard":
     st.header("Dashboard")
