@@ -50,12 +50,11 @@ elif menu == "➕ Add Customer":
         phone = st.text_input("Phone Number *")
         email = st.text_input("Email (Optional)")
     with col2:
-        # Fixed Birthday Picker - Allow years from 1950 to current year
         birthday = st.date_input(
             "Birthday", 
             value=date(2000, 1, 1),
-            min_value=date(1950, 1, 1),   # Earliest year
-            max_value=date.today()         # Cannot choose future date
+            min_value=date(1950, 1, 1),
+            max_value=date.today()
         )
         outlet = st.selectbox("Registered At", outlets)
     
@@ -80,36 +79,45 @@ elif menu == "➕ Add Customer":
             st.success(f"""
             🎉 **Customer Registered Successfully!**
             **Customer ID:** {new_id}
+            **Outlet:** {outlet}
             **RM10 Sign-up Voucher Issued**
             """)
         else:
             st.error("❌ Name and Phone Number are required!")
 
-# Record Spending
+# ================== RECORD SPENDING ==================
 elif menu == "💰 Record Spending":
-    st.subheader("Record Spending")
-    cust_id = st.number_input("Customer ID", min_value=1001)
-    amount = st.number_input("Amount (RM)", min_value=0.0)
-    outlet = st.selectbox("Outlet", outlets)
-    notes = st.text_input("Notes")
+    st.subheader("Record Spending / Visit")
     
-    if st.button("Record & Add Points"):
-        if cust_id in customers['customer_id'].values:
-            points = int(amount)
-            idx = customers[customers['customer_id'] == cust_id].index[0]
+    customer_id = st.number_input("Customer ID", min_value=1001, step=1)
+    amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0)
+    outlet = st.selectbox("Outlet", outlets)
+    notes = st.text_input("Notes (e.g. Movie Package, Table Number)")
+    
+    if st.button("Record Spending & Add Points", type="primary"):
+        if not customers[customers['customer_id'] == customer_id].empty:
+            points = int(amount)  # 1 point per RM1
+            
+            idx = customers[customers['customer_id'] == customer_id].index[0]
             customers.at[idx, 'total_points'] += points
             customers.to_csv(CUSTOMERS_FILE, index=False)
             
             new_trans = pd.DataFrame([{
-                'date': str(datetime.now()), 'customer_id': cust_id, 'type': 'Spending',
-                'amount': amount, 'points': points, 'outlet': outlet, 'notes': notes, 'voucher_used': ''
+                'date': str(datetime.now()),
+                'customer_id': customer_id,
+                'type': 'Spending',
+                'amount': amount,
+                'points': points,
+                'outlet': outlet,
+                'notes': notes,
+                'voucher_used': ''
             }])
             transactions = pd.concat([transactions, new_trans], ignore_index=True)
             transactions.to_csv(TRANSACTIONS_FILE, index=False)
             
-            st.success(f"✅ RM{amount} recorded! +{points} points")
+            st.success(f"✅ RM{amount} recorded at **{outlet}**! +{points} points added!")
         else:
-            st.error("Customer not found")
+            st.error("Customer ID not found!")
 
 # Add other menus similarly...
 
