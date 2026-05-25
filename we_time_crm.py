@@ -89,34 +89,57 @@ elif menu == "➕ Add Customer":
 elif menu == "💰 Record Spending":
     st.subheader("Record Spending / Visit")
     
-    customer_id = st.number_input("Customer ID", min_value=1001, step=1)
-    amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0)
-    outlet = st.selectbox("Outlet", outlets)
-    notes = st.text_input("Notes (e.g. Movie Package, Table Number)")
+    st.write("**Search Customer by Phone Number**")
+    phone_input = st.text_input("Enter Customer Phone Number")
     
-    if st.button("Record Spending & Add Points", type="primary"):
-        if not customers[customers['customer_id'] == customer_id].empty:
-            points = int(amount)  # 1 point per RM1
+    if phone_input:
+        # Find customer by phone
+        matching_customers = customers[customers['phone'].str.contains(phone_input, case=False, na=False)]
+        
+        if not matching_customers.empty:
+            selected_customer = matching_customers.iloc[0]
             
-            idx = customers[customers['customer_id'] == customer_id].index[0]
-            customers.at[idx, 'total_points'] += points
-            customers.to_csv(CUSTOMERS_FILE, index=False)
+            st.success(f"✅ Customer Found: **{selected_customer['name']}** (ID: {selected_customer['customer_id']})")
             
-            new_trans = pd.DataFrame([{
-                'date': str(datetime.now()),
-                'customer_id': customer_id,
-                'type': 'Spending',
-                'amount': amount,
-                'points': points,
-                'outlet': outlet,
-                'notes': notes,
-                'voucher_used': ''
-            }])
-            transactions = pd.concat([transactions, new_trans], ignore_index=True)
-            transactions.to_csv(TRANSACTIONS_FILE, index=False)
+            amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0)
+            outlet = st.selectbox("Outlet", outlets)
+            notes = st.text_input("Notes (e.g. Movie Package, Table No.)")
             
-            st.success(f"✅ RM{amount} recorded at **{outlet}**! +{points} points added!")
+            if st.button("Record Spending & Add Points", type="primary"):
+                points = int(amount)  # 1 point per RM1
+                
+                # Update customer points
+                idx = customers[customers['customer_id'] == selected_customer['customer_id']].index[0]
+                customers.at[idx, 'total_points'] += points
+                customers.to_csv(CUSTOMERS_FILE, index=False)
+                
+                # Record transaction
+                new_trans = pd.DataFrame([{
+                    'date': str(datetime.now()),
+                    'customer_id': selected_customer['customer_id'],
+                    'type': 'Spending',
+                    'amount': amount,
+                    'points': points,
+                    'outlet': outlet,
+                    'notes': notes,
+                    'voucher_used': ''
+                }])
+                transactions = pd.concat([transactions, new_trans], ignore_index=True)
+                transactions.to_csv(TRANSACTIONS_FILE, index=False)
+                
+                st.success(f"""
+                🎉 **Transaction Recorded Successfully!**
+                - Customer: {selected_customer['name']}
+                - Outlet: {outlet}
+                - Amount: RM{amount}
+                - Points Added: +{points}
+                """)
         else:
+            st.error("❌ No customer found with this phone number.")
+            st.info("Tip: Make sure the phone number is correct or register the customer first.")
+    
+    else:
+        st.info("Enter phone number above to search customer")
             st.error("Customer ID not found!")
 
 # Add other menus similarly...
