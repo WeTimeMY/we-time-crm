@@ -163,44 +163,54 @@ elif menu == "🎟️ Redeem Voucher":
                     customers.to_csv(CUSTOMERS_FILE, index=False)
                     st.success(f"Redeemed {redeem_points} points!")
 
-# ================== BIRTHDAY NOTIFICATIONS (New) ==================
+# ================== BIRTHDAY NOTIFICATIONS (Fixed) ==================
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
     
     if customers.empty:
         st.info("No customers yet.")
     else:
-        # Add month and day for comparison
-        customers['b_month'] = pd.to_datetime(customers['birthday']).dt.month
-        customers['b_day'] = pd.to_datetime(customers['birthday']).dt.day
-        
         today_month = today.month
         today_day = today.day
         
         # Today's birthdays
-        today_birthdays = customers[(customers['b_month'] == today_month) & (customers['b_day'] == today_day)]
-        
-        # Upcoming birthdays (next 7 days)
+        today_birthdays = []
         upcoming = []
+        
         for _, cust in customers.iterrows():
-            b_date = pd.to_datetime(cust['birthday']).replace(year=today.year)
-            if b_date < today:
-                b_date = b_date.replace(year=today.year + 1)
-            days_until = (b_date.date() - today).days
-            if 1 <= days_until <= 7:
-                upcoming.append({
-                    'name': cust['name'],
-                    'phone': cust['phone'],
-                    'birthday': cust['birthday'],
-                    'days_left': days_until,
-                    'points': cust['total_points']
-                })
+            if pd.isna(cust['birthday']):
+                continue
+            b_date = pd.to_datetime(cust['birthday']).date()
+            b_month = b_date.month
+            b_day = b_date.day
+            
+            # Today's birthday
+            if b_month == today_month and b_day == today_day:
+                today_birthdays.append(cust)
+            
+            # Upcoming birthdays (next 7 days)
+            try:
+                this_year_bday = date(today.year, b_month, b_day)
+                if this_year_bday < today:
+                    this_year_bday = date(today.year + 1, b_month, b_day)
+                days_until = (this_year_bday - today).days
+                if 1 <= days_until <= 7:
+                    upcoming.append({
+                        'name': cust['name'],
+                        'phone': cust['phone'],
+                        'birthday': b_date,
+                        'days_left': days_until,
+                        'points': cust['total_points']
+                    })
+            except:
+                continue
         
         # Display Today's Birthdays
         st.write("### 🎉 Birthdays Today")
-        if not today_birthdays.empty:
-            st.success(f"**{len(today_birthdays)} customer(s) have birthday today!**")
-            st.dataframe(today_birthdays[['name', 'phone', 'birthday', 'total_points']], use_container_width=True)
+        if today_birthdays:
+            today_df = pd.DataFrame(today_birthdays)
+            st.success(f"**{len(today_birthdays)} customer(s) celebrating today!**")
+            st.dataframe(today_df[['name', 'phone', 'birthday', 'total_points']], use_container_width=True)
         else:
             st.info("No birthdays today.")
         
@@ -211,7 +221,7 @@ elif menu == "🎂 Birthday Notifications":
             upcoming_df = upcoming_df.sort_values('days_left')
             st.dataframe(upcoming_df, use_container_width=True)
         else:
-            st.info("No birthdays in the next 7 days.")
+            st.info("No upcoming birthdays in the next 7 days.")
 
 # ================== SEARCH & REPORTS ==================
 elif menu == "🔍 Search":
@@ -232,8 +242,8 @@ elif menu == "📊 Reports":
         st.download_button("Download Customer List", csv, "we_time_customers.csv", "text/csv")
 
 st.sidebar.info("""
-**We Time CRM v1.6**
-• 1 Point = RM1
-• Birthday Voucher: Once per year in birthday month
-• Automatic Birthday Notifications Added
+**We Time CRM v1.7**
+• Automatic Birthday Notifications
+• Birthday Voucher resets yearly
+• Stable Date Handling Fixed
 """)
