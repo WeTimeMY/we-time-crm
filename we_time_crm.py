@@ -22,10 +22,12 @@ def load_customers():
             df['birthday'] = pd.to_datetime(df['birthday'], errors='coerce').dt.date
         if 'last_birthday_voucher_year' not in df.columns:
             df['last_birthday_voucher_year'] = 0
+        if 'sign_up_voucher_redeemed' not in df.columns:
+            df['sign_up_voucher_redeemed'] = False
         return df
     else:
         return pd.DataFrame(columns=['customer_id', 'name', 'phone', 'email', 'birthday', 
-                                     'join_date', 'total_points', 'sign_up_voucher_used', 
+                                     'join_date', 'total_points', 'sign_up_voucher_redeemed', 
                                      'last_birthday_voucher_year'])
 
 def load_transactions():
@@ -69,18 +71,26 @@ elif menu == "➕ Add New Customer":
                                min_value=date(1950, 1, 1), max_value=date.today())
         outlet = st.selectbox("Registered At", outlets)
     
-    if st.button("Register + RM10 Sign-up", type="primary"):
+    if st.button("Register + Give RM10 Sign-up Voucher", type="primary"):
         if name and phone:
             new_id = 1000 + len(customers) + 1
             new_row = pd.DataFrame([{
-                'customer_id': new_id, 'name': name.strip(), 'phone': phone.strip(),
-                'email': email.strip() if email else "", 'birthday': str(birthday),
-                'join_date': str(date.today()), 'total_points': 10,
-                'sign_up_voucher_used': False, 'last_birthday_voucher_year': 0
+                'customer_id': new_id, 
+                'name': name.strip(), 
+                'phone': phone.strip(),
+                'email': email.strip() if email else "", 
+                'birthday': str(birthday),
+                'join_date': str(date.today()), 
+                'total_points': 0,                    # Changed: No points given
+                'sign_up_voucher_redeemed': False,
+                'last_birthday_voucher_year': 0
             }])
             customers = pd.concat([customers, new_row], ignore_index=True)
             customers.to_csv(CUSTOMERS_FILE, index=False)
-            st.success(f"✅ Customer ID **{new_id}** registered! RM10 Sign-up Voucher Issued.")
+            st.success(f"""
+            ✅ Customer ID **{new_id}** registered successfully at {outlet}!
+            🎟️ **RM10 Sign-up Voucher Issued** (Redeemable once)
+            """)
         else:
             st.error("Name and Phone are required!")
 
@@ -115,20 +125,7 @@ elif menu == "💰 Record Spending":
         else:
             st.error("Customer not found.")
 
-# ================== CUSTOMER RECORD ==================
-elif menu == "👤 Customer Record":
-    st.subheader("Customer Full Record")
-    phone_input = st.text_input("Enter Phone Number")
-    if phone_input:
-        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
-        if not matching.empty:
-            cust = matching.iloc[0]
-            st.write(f"**{cust['name']}** | ID: {cust['customer_id']} | Points: **{cust['total_points']}**")
-            cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
-            if not cust_trans.empty:
-                st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
-
-# ================== REDEEM REWARD (Updated) ==================
+# ================== REDEEM REWARD ==================
 elif menu == "🎟️ Redeem Reward":
     st.subheader("🎟️ Redeem Rewards")
     phone_input = st.text_input("Customer Phone Number")
@@ -142,21 +139,32 @@ elif menu == "🎟️ Redeem Reward":
             
             st.write(f"**Customer:** {cust['name']} | **Current Points:** {cust['total_points']}")
             
-            # Birthday Voucher
-            if st.button("Redeem RM20 Birthday Voucher", type="primary"):
-                if datetime.now().month == birthday_month:
-                    if cust['last_birthday_voucher_year'] < current_year:
+            # === Vouchers ===
+            st.write("### Vouchers")
+            colA, colB = st.columns(2)
+            
+            with colA:
+                if st.button("Redeem RM10 Sign-up Voucher"):
+                    if not cust['sign_up_voucher_redeemed']:
+                        idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                        customers.at[idx, 'sign_up_voucher_redeemed'] = True
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        st.success("✅ RM10 Sign-up Voucher Redeemed!")
+                    else:
+                        st.warning("Sign-up voucher already redeemed.")
+            
+            with colB:
+                if st.button("Redeem RM20 Birthday Voucher"):
+                    if datetime.now().month == birthday_month and cust['last_birthday_voucher_year'] < current_year:
                         idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
                         customers.at[idx, 'last_birthday_voucher_year'] = current_year
-                        customers.at[idx, 'total_points'] -= 20
                         customers.to_csv(CUSTOMERS_FILE, index=False)
-                        st.success("🎉 RM20 Birthday Voucher Redeemed!")
+                        st.success("✅ RM20 Birthday Voucher Redeemed!")
                     else:
-                        st.warning("Birthday voucher already redeemed this year.")
-                else:
-                    st.error("Can only redeem in birthday month.")
+                        st.error("Not eligible for Birthday Voucher now.")
             
-            st.write("### Other Rewards")
+            # === Point-based Rewards ===
+            st.write("### Point-Based Rewards")
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -191,7 +199,20 @@ elif menu == "🎟️ Redeem Reward":
         else:
             st.error("Customer not found.")
 
-# ================== BIRTHDAY NOTIFICATIONS ==================
+# ================== Other Sections (Customer Record, Birthday, etc.) ==================
+elif menu == "👤 Customer Record":
+    st.subheader("Customer Full Record")
+    phone_input = st.text_input("Enter Phone Number")
+    if phone_input:
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+        if not matching.empty:
+            cust = matching.iloc[0]
+            st.write(f"**{cust['name']}** | ID: {cust['customer_id']} | Points: **{cust['total_points']}**")
+            st.write(f"Sign-up Voucher Redeemed: {'Yes' if cust['sign_up_voucher_redeemed'] else 'No'}")
+            cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
+            if not cust_trans.empty:
+                st.dataframe(cust_trans.sort_values('date', ascending=False))
+
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
     if customers.empty:
@@ -218,30 +239,24 @@ elif menu == "🎂 Birthday Notifications":
                 days_until = (this_year_bday - today).days
                 if 1 <= days_until <= 7:
                     upcoming.append({
-                        'name': cust['name'],
-                        'phone': cust['phone'],
-                        'birthday': b_date,
-                        'days_left': days_until,
-                        'points': cust['total_points']
+                        'name': cust['name'], 'phone': cust['phone'],
+                        'birthday': b_date, 'days_left': days_until
                     })
             except:
                 continue
         
         st.write("### 🎉 Birthdays Today")
         if today_birthdays:
-            today_df = pd.DataFrame(today_birthdays)
             st.success(f"**{len(today_birthdays)} customer(s) celebrating today!**")
-            st.dataframe(today_df[['name', 'phone', 'birthday', 'total_points']], use_container_width=True)
+            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']])
         else:
             st.info("No birthdays today.")
         
-        st.write("### 📅 Upcoming Birthdays (Next 7 Days)")
+        st.write("### 📅 Upcoming (Next 7 Days)")
         if upcoming:
-            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'), use_container_width=True)
-        else:
-            st.info("No upcoming birthdays in next 7 days.")
+            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
-# Search & Reports
+# Search & Reports (kept short)
 elif menu == "🔍 Search":
     st.subheader("Search Customer")
     search = st.text_input("Name or Phone")
@@ -260,8 +275,8 @@ elif menu == "📊 Reports":
         st.download_button("Download Customer List", csv, "we_time_customers.csv", "text/csv")
 
 st.sidebar.info("""
-**We Time CRM v1.8**
-• 1 Point = RM1
-• Rewards: Drink (300), Switch (500), Room (1000)
-• Birthday Voucher (Birthday Month Only)
+**We Time CRM v1.9**
+• Sign-up: RM10 Voucher (once)
+• Rewards: Drink(300), Switch(500), Room(1000)
+• Birthday Voucher: Once per year in birthday month
 """)
