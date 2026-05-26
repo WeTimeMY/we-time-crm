@@ -112,7 +112,7 @@ elif menu == "➕ Add New Customer":
         else:
             st.error("Name and Phone Number are required!")
 
-# ================== RECORD SPENDING (The version you liked) ==================
+# ================== RECORD SPENDING ==================
 elif menu == "💰 Record Spending":
     st.subheader("💰 Record Spending")
     
@@ -145,14 +145,9 @@ elif menu == "💰 Record Spending":
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         
                         new_trans = pd.DataFrame([{
-                            'date': str(datetime.now()),
-                            'customer_id': customer['customer_id'],
-                            'type': 'Spending',
-                            'amount': amount,
-                            'points': points,
-                            'outlet': outlet,
-                            'notes': notes,
-                            'voucher_used': ''
+                            'date': str(datetime.now()), 'customer_id': customer['customer_id'],
+                            'type': 'Spending', 'amount': amount, 'points': points,
+                            'outlet': outlet, 'notes': notes, 'voucher_used': ''
                         }])
                         transactions = pd.concat([transactions, new_trans], ignore_index=True)
                         transactions.to_csv(TRANSACTIONS_FILE, index=False)
@@ -164,29 +159,52 @@ elif menu == "💰 Record Spending":
             else:
                 st.error("Customer not found.")
 
-# ================== ADJUST POINTS ==================
+# ================== ADJUST POINTS (Same style as Spending) ==================
 elif menu == "🔧 Adjust Points":
     st.subheader("🔧 Adjust Points")
-    phone_input = st.text_input("Customer Phone Number")
-    if phone_input:
-        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
-        if not matching.empty:
-            cust = matching.iloc[0]
-            st.success(f"Customer: **{cust['name']}** | Current Points: {cust['total_points']}")
-            
-            adjustment = st.number_input("Points to Adjust", value=0, step=1, help="Negative = Deduct")
-            reason = st.text_input("Reason", "Correction")
-            
-            if st.button("Apply Adjustment", type="primary"):
-                if adjustment != 0:
-                    idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
-                    old = cust['total_points']
-                    new = old + adjustment
-                    customers.at[idx, 'total_points'] = new
-                    customers.to_csv(CUSTOMERS_FILE, index=False)
-                    st.success(f"✅ Changed from {old} to {new}")
-        else:
-            st.error("Customer not found.")
+    
+    if 'adjust_success' not in st.session_state:
+        st.session_state.adjust_success = False
+
+    if st.session_state.adjust_success:
+        st.success("✅ Points adjusted successfully!")
+        st.info("Form has been cleared.")
+        if st.button("🔄 New Adjustment"):
+            st.session_state.adjust_success = False
+            st.rerun()
+    else:
+        phone_input = st.text_input("Customer Phone Number")
+        if phone_input:
+            matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+            if not matching.empty:
+                cust = matching.iloc[0]
+                st.success(f"Customer: **{cust['name']}** | Current Points: {cust['total_points']}")
+                
+                adjustment = st.number_input("Points to Adjust", value=0, step=1, help="Negative = Deduct")
+                reason = st.text_input("Reason", "Correction")
+                
+                if st.button("Apply Adjustment", type="primary"):
+                    if adjustment != 0:
+                        idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                        old = cust['total_points']
+                        new = old + adjustment
+                        customers.at[idx, 'total_points'] = new
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        
+                        new_trans = pd.DataFrame([{
+                            'date': str(datetime.now()), 'customer_id': cust['customer_id'],
+                            'type': 'Adjustment', 'amount': 0, 'points': adjustment,
+                            'outlet': 'Staff', 'notes': reason, 'voucher_used': ''
+                        }])
+                        transactions = pd.concat([transactions, new_trans], ignore_index=True)
+                        transactions.to_csv(TRANSACTIONS_FILE, index=False)
+                        
+                        st.session_state.adjust_success = True
+                        st.rerun()
+                    else:
+                        st.warning("No change made.")
+            else:
+                st.error("Customer not found.")
 
 # ================== CUSTOMER RECORD ==================
 elif menu == "👤 Customer Record":
@@ -247,7 +265,7 @@ elif menu == "🎂 Birthday Notifications":
             st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
 st.sidebar.info("""
-**We Time CRM v3.9**
-• Record Spending clears after success (as you liked)
-• Birthday Notifications working
+**We Time CRM v4.0**
+• Record Spending clears after success
+• Adjust Points clears after success (same style)
 """)
