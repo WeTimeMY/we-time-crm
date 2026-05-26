@@ -6,11 +6,11 @@ import os
 st.set_page_config(page_title="We Time CRM", layout="wide")
 st.title("🎬 We Time Private Movie Cafe - CRM System")
 
-# Admin Login
+# ================== ADMIN LOGIN ==================
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # Change this!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS PASSWORD!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -80,7 +80,7 @@ if menu == "🏠 Dashboard":
     col2.metric("Total Points", int(customers['total_points'].sum()) if not customers.empty else 0)
     col3.metric("Outlets", len(outlets))
 
-# ================== ADD NEW CUSTOMER ==================
+# ================== ADD NEW CUSTOMER (Duplicate Protection) ==================
 elif menu == "➕ Add New Customer":
     st.subheader("Register New Customer")
     col1, col2 = st.columns(2)
@@ -94,18 +94,31 @@ elif menu == "➕ Add New Customer":
     
     if st.button("Register + Give RM10 Sign-up Voucher", type="primary"):
         if name and phone:
-            new_id = 1000 + len(customers) + 1
-            new_row = pd.DataFrame([{
-                'customer_id': new_id, 'name': name.strip(), 'phone': phone.strip(),
-                'email': email.strip() if email else "", 'birthday': str(birthday),
-                'join_date': str(date.today()), 'total_points': 0,
-                'sign_up_voucher_redeemed': False, 'last_birthday_voucher_year': 0
-            }])
-            customers = pd.concat([customers, new_row], ignore_index=True)
-            customers.to_csv(CUSTOMERS_FILE, index=False)
-            st.success(f"✅ Customer ID **{new_id}** registered! RM10 Sign-up Voucher Issued.")
+            phone_clean = phone.strip()
+            # Check for existing customer
+            existing = customers[customers['phone'].str.contains(phone_clean, case=False, na=False)]
+            if not existing.empty:
+                existing_cust = existing.iloc[0]
+                st.error(f"❌ This phone number is already registered!")
+                st.info(f"Existing: **{existing_cust['name']}** (ID: {existing_cust['customer_id']})")
+            else:
+                new_id = 1000 + len(customers) + 1
+                new_row = pd.DataFrame([{
+                    'customer_id': new_id, 
+                    'name': name.strip(), 
+                    'phone': phone_clean,
+                    'email': email.strip() if email else "", 
+                    'birthday': str(birthday),
+                    'join_date': str(date.today()), 
+                    'total_points': 0,
+                    'sign_up_voucher_redeemed': False, 
+                    'last_birthday_voucher_year': 0
+                }])
+                customers = pd.concat([customers, new_row], ignore_index=True)
+                customers.to_csv(CUSTOMERS_FILE, index=False)
+                st.success(f"✅ Customer ID **{new_id}** registered successfully! RM10 Sign-up Voucher Issued.")
         else:
-            st.error("Name and Phone are required!")
+            st.error("Name and Phone Number are required!")
 
 # ================== RECORD SPENDING ==================
 elif menu == "💰 Record Spending":
@@ -148,7 +161,7 @@ elif menu == "🔧 Adjust Points":
             cust = matching.iloc[0]
             st.success(f"Customer: **{cust['name']}** | Current Points: **{cust['total_points']}**")
             
-            adjustment = st.number_input("Points to Adjust", value=0, step=1, help="Use negative to deduct")
+            adjustment = st.number_input("Points to Adjust", value=0, step=1, help="Negative = Deduct")
             reason = st.text_input("Reason", "Correction")
             
             if st.button("Apply Adjustment", type="primary"):
@@ -168,7 +181,7 @@ elif menu == "🔧 Adjust Points":
                     transactions.to_csv(TRANSACTIONS_FILE, index=False)
                     st.success(f"Changed from {old} to {new}")
                 else:
-                    st.warning("No change.")
+                    st.warning("No change made.")
         else:
             st.error("Customer not found.")
 
@@ -232,6 +245,8 @@ elif menu == "🎟️ Redeem Reward":
                         customers.at[idx, 'total_points'] -= 300
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ 1 Cup Drink Redeemed!")
+                    else:
+                        st.error("Not enough points!")
             with col2:
                 if st.button("1 Hour Nintendo Switch (-500)"):
                     if cust['total_points'] >= 500:
@@ -239,6 +254,8 @@ elif menu == "🎟️ Redeem Reward":
                         customers.at[idx, 'total_points'] -= 500
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ Nintendo Switch Redeemed!")
+                    else:
+                        st.error("Not enough points!")
             with col3:
                 if st.button("1 Hour Free Small Room (-1000)"):
                     if cust['total_points'] >= 1000:
@@ -246,14 +263,16 @@ elif menu == "🎟️ Redeem Reward":
                         customers.at[idx, 'total_points'] -= 1000
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ Free Room Redeemed!")
+                    else:
+                        st.error("Not enough points!")
         else:
             st.error("Customer not found.")
 
-# ================== BIRTHDAY NOTIFICATIONS (FULL CODE) ==================
+# ================== BIRTHDAY NOTIFICATIONS ==================
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
     if customers.empty:
-        st.info("No customers registered yet.")
+        st.info("No customers yet.")
     else:
         today_month = today.month
         today_day = today.day
@@ -261,17 +280,14 @@ elif menu == "🎂 Birthday Notifications":
         upcoming = []
         
         for _, cust in customers.iterrows():
-            if pd.isna(cust['birthday']): 
-                continue
+            if pd.isna(cust['birthday']): continue
             b_date = pd.to_datetime(cust['birthday']).date()
             b_month = b_date.month
             b_day = b_date.day
             
-            # Today's birthdays
             if b_month == today_month and b_day == today_day:
                 today_birthdays.append(cust)
             
-            # Upcoming birthdays
             try:
                 this_year_bday = date(today.year, b_month, b_day)
                 if this_year_bday < today:
@@ -279,9 +295,9 @@ elif menu == "🎂 Birthday Notifications":
                 days_until = (this_year_bday - today).days
                 if 1 <= days_until <= 7:
                     upcoming.append({
-                        'name': cust['name'],
+                        'name': cust['name'], 
                         'phone': cust['phone'],
-                        'birthday': b_date.strftime('%d %B'),
+                        'birthday': b_date, 
                         'days_left': days_until
                     })
             except:
@@ -289,18 +305,16 @@ elif menu == "🎂 Birthday Notifications":
         
         st.write("### 🎉 Birthdays Today")
         if today_birthdays:
-            st.success(f"**{len(today_birthdays)} customer(s) have birthday today!**")
-            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']], use_container_width=True)
+            st.success(f"**{len(today_birthdays)} customer(s) celebrating today!**")
+            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']])
         else:
             st.info("No birthdays today.")
         
-        st.write("### 📅 Upcoming Birthdays (Next 7 Days)")
+        st.write("### 📅 Upcoming (Next 7 Days)")
         if upcoming:
-            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'), use_container_width=True)
-        else:
-            st.info("No upcoming birthdays in the next 7 days.")
+            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
-# ================== SEARCH & REPORTS ==================
+# ================== SEARCH ==================
 elif menu == "🔍 Search":
     st.subheader("Search Customer")
     search = st.text_input("Name or Phone")
@@ -311,12 +325,13 @@ elif menu == "🔍 Search":
         ]
         st.dataframe(results, use_container_width=True)
 
+# ================== REPORTS ==================
 elif menu == "📊 Reports":
     st.subheader("📊 Reports")
-    st.info("Reports section is available. Please use Admin Mode to download.")
+    st.info("Advanced reports coming in next update.")
 
 st.sidebar.info("""
-**We Time CRM v3.0**
-• All pages fully included
-• Birthday Notifications Fixed
+**We Time CRM v3.1**
+• Duplicate Phone Check Added
+• Full stable version
 """)
