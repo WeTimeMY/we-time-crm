@@ -159,7 +159,7 @@ elif menu == "💰 Record Spending":
             else:
                 st.error("Customer not found.")
 
-# ================== ADJUST POINTS (Same style as Spending) ==================
+# ================== ADJUST POINTS ==================
 elif menu == "🔧 Adjust Points":
     st.subheader("🔧 Adjust Points")
     
@@ -190,15 +190,7 @@ elif menu == "🔧 Adjust Points":
                         new = old + adjustment
                         customers.at[idx, 'total_points'] = new
                         customers.to_csv(CUSTOMERS_FILE, index=False)
-                        
-                        new_trans = pd.DataFrame([{
-                            'date': str(datetime.now()), 'customer_id': cust['customer_id'],
-                            'type': 'Adjustment', 'amount': 0, 'points': adjustment,
-                            'outlet': 'Staff', 'notes': reason, 'voucher_used': ''
-                        }])
-                        transactions = pd.concat([transactions, new_trans], ignore_index=True)
-                        transactions.to_csv(TRANSACTIONS_FILE, index=False)
-                        
+                        st.success(f"✅ Changed from {old} to {new}")
                         st.session_state.adjust_success = True
                         st.rerun()
                     else:
@@ -219,6 +211,39 @@ elif menu == "👤 Customer Record":
             cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
             if not cust_trans.empty:
                 st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
+
+# ================== REDEEM REWARD ==================
+elif menu == "🎟️ Redeem Reward":
+    st.subheader("🎟️ Redeem Rewards")
+    phone_input = st.text_input("Customer Phone Number")
+    if phone_input:
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+        if not matching.empty:
+            cust = matching.iloc[0]
+            birthday_date = pd.to_datetime(cust['birthday'])
+            birthday_month = birthday_date.month
+            st.write(f"**{cust['name']}** | Points: {cust['total_points']}")
+            
+            st.write("### Vouchers")
+            colA, colB = st.columns(2)
+            with colA:
+                if st.button("Redeem RM10 Sign-up Voucher"):
+                    if not cust['sign_up_voucher_redeemed']:
+                        idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                        customers.at[idx, 'sign_up_voucher_redeemed'] = True
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        st.success("✅ RM10 Sign-up Voucher Redeemed!")
+                    else:
+                        st.warning("Already redeemed.")
+            with colB:
+                if st.button("Redeem RM20 Birthday Voucher"):
+                    if datetime.now().month == birthday_month and cust['last_birthday_voucher_year'] < current_year:
+                        idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                        customers.at[idx, 'last_birthday_voucher_year'] = current_year
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        st.success("✅ RM20 Birthday Voucher Redeemed!")
+                    else:
+                        st.error("Not eligible now.")
 
 # ================== BIRTHDAY NOTIFICATIONS ==================
 elif menu == "🎂 Birthday Notifications":
@@ -266,6 +291,6 @@ elif menu == "🎂 Birthday Notifications":
 
 st.sidebar.info("""
 **We Time CRM v4.0**
-• Record Spending clears after success
-• Adjust Points clears after success (same style)
+• All pages included
+• Record Spending & Adjust Points clear after success
 """)
