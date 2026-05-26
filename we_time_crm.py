@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS TO YOUR OWN PASSWORD!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -245,9 +245,10 @@ elif menu == "🎟️ Redeem Reward":
                     else:
                         st.error("Not eligible now.")
 
-# ================== BIRTHDAY NOTIFICATIONS ==================
+# ================== BIRTHDAY NOTIFICATIONS (Improved) ==================
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
+    
     if customers.empty:
         st.info("No customers yet.")
     else:
@@ -257,25 +258,35 @@ elif menu == "🎂 Birthday Notifications":
         upcoming = []
         
         for _, cust in customers.iterrows():
-            if pd.isna(cust['birthday']): continue
-            b_date = pd.to_datetime(cust['birthday']).date()
-            b_month = b_date.month
-            b_day = b_date.day
-            
-            if b_month == today_month and b_day == today_day:
-                today_birthdays.append(cust)
-            
+            if pd.isna(cust['birthday']): 
+                continue
             try:
+                b_date = pd.to_datetime(cust['birthday']).date()
+                b_month = b_date.month
+                b_day = b_date.day
+                
+                # Today's birthdays
+                if b_month == today_month and b_day == today_day:
+                    today_birthdays.append({
+                        'name': cust['name'],
+                        'phone': cust['phone'],
+                        'birthday': b_date.strftime('%d %B %Y'),
+                        'points': cust['total_points']
+                    })
+                
+                # Upcoming birthdays (next 7 days)
                 this_year_bday = date(today.year, b_month, b_day)
                 if this_year_bday < today:
                     this_year_bday = date(today.year + 1, b_month, b_day)
                 days_until = (this_year_bday - today).days
+                
                 if 1 <= days_until <= 7:
                     upcoming.append({
                         'name': cust['name'],
                         'phone': cust['phone'],
-                        'birthday': b_date,
-                        'days_left': days_until
+                        'birthday': b_date.strftime('%d %B'),
+                        'days_left': days_until,
+                        'points': cust['total_points']
                     })
             except:
                 continue
@@ -283,17 +294,21 @@ elif menu == "🎂 Birthday Notifications":
         st.write("### 🎉 Birthdays Today")
         if today_birthdays:
             st.success(f"**{len(today_birthdays)} customer(s) celebrating today!**")
-            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']])
+            st.dataframe(pd.DataFrame(today_birthdays), use_container_width=True)
         else:
             st.info("No birthdays today.")
         
-        st.write("### 📅 Upcoming (Next 7 Days)")
+        st.write("### 📅 Upcoming Birthdays (Next 7 Days)")
         if upcoming:
-            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
+            upcoming_df = pd.DataFrame(upcoming)
+            upcoming_df = upcoming_df.sort_values('days_left')
+            st.dataframe(upcoming_df, use_container_width=True)
+        else:
+            st.info("No upcoming birthdays in the next 7 days.")
 
 st.sidebar.info("""
-**We Time CRM v4.1**
+**We Time CRM v4.2**
 • Record Spending clears after success
 • Adjust Points clears after success
-• Birthday Notifications fully working
+• Birthday Notifications fully fixed
 """)
