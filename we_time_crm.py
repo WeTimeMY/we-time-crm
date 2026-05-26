@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS TO YOUR OWN PASSWORD!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -272,8 +272,10 @@ elif menu == "🎂 Birthday Notifications":
                 days_until = (this_year_bday - today).days
                 if 1 <= days_until <= 7:
                     upcoming.append({
-                        'name': cust['name'], 'phone': cust['phone'],
-                        'birthday': b_date, 'days_left': days_until
+                        'name': cust['name'],
+                        'phone': cust['phone'],
+                        'birthday': b_date,
+                        'days_left': days_until
                     })
             except:
                 continue
@@ -290,7 +292,8 @@ elif menu == "🎂 Birthday Notifications":
             st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
 st.sidebar.info("""
-**We Time CRM v4.0**
-• All pages included
-• Record Spending & Adjust Points clear after success
+**We Time CRM v4.1**
+• Record Spending clears after success
+• Adjust Points clears after success
+• Birthday Notifications fully working
 """)
