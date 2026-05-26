@@ -6,11 +6,11 @@ import os
 st.set_page_config(page_title="We Time CRM", layout="wide")
 st.title("🎬 We Time Private Movie Cafe - CRM System")
 
-# ================== ADMIN LOGIN ==================
+# ================== ADMIN LOGIN (Only for Reports Download) ==================
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
+PASSWORD = "wetimemanagement2026"   # ← Change this!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -68,8 +68,8 @@ today = date.today()
 menu = st.sidebar.selectbox(
     "Main Menu", 
     ["🏠 Dashboard", "➕ Add New Customer", "💰 Record Spending", 
-     "👤 Customer Record", "🎟️ Redeem Reward", "🎂 Birthday Notifications", 
-     "🔍 Search", "📊 Reports"]
+     "👤 Customer Record", "🎟️ Redeem Reward", "🔧 Adjust Points",
+     "🎂 Birthday Notifications", "🔍 Search", "📊 Reports"]
 )
 
 # ================== DASHBOARD ==================
@@ -134,11 +134,50 @@ elif menu == "💰 Record Spending":
                 }])
                 transactions = pd.concat([transactions, new_trans], ignore_index=True)
                 transactions.to_csv(TRANSACTIONS_FILE, index=False)
-                st.success(f"✅ RM{amount} recorded at {outlet} → +{points} points!")
+                st.success(f"✅ RM{amount} recorded → +{points} points!")
         else:
             st.error("Customer not found.")
 
-# ================== CUSTOMER RECORD (Fixed) ==================
+# ================== ADJUST POINTS (Available to all staff) ==================
+elif menu == "🔧 Adjust Points":
+    st.subheader("🔧 Adjust Points (Correction)")
+    phone_input = st.text_input("Customer Phone Number")
+    if phone_input:
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+        if not matching.empty:
+            cust = matching.iloc[0]
+            st.success(f"Customer: **{cust['name']}** | Current Points: **{cust['total_points']}**")
+            
+            adjustment = st.number_input("Adjust Points", value=0, step=1, 
+                                       help="Use negative number to deduct (e.g. -150)")
+            reason = st.text_input("Reason", "Correction / Error")
+            
+            if st.button("Apply Adjustment", type="primary"):
+                if adjustment != 0:
+                    idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                    customers.at[idx, 'total_points'] += adjustment
+                    customers.to_csv(CUSTOMERS_FILE, index=False)
+                    
+                    new_trans = pd.DataFrame([{
+                        'date': str(datetime.now()),
+                        'customer_id': cust['customer_id'],
+                        'type': 'Adjustment',
+                        'amount': 0,
+                        'points': adjustment,
+                        'outlet': 'Staff',
+                        'notes': reason,
+                        'voucher_used': ''
+                    }])
+                    transactions = pd.concat([transactions, new_trans], ignore_index=True)
+                    transactions.to_csv(TRANSACTIONS_FILE, index=False)
+                    
+                    st.success(f"✅ Points adjusted by {adjustment} for {cust['name']}")
+                else:
+                    st.warning("No change applied.")
+        else:
+            st.error("Customer not found.")
+
+# ================== CUSTOMER RECORD ==================
 elif menu == "👤 Customer Record":
     st.subheader("👤 Customer Full Record")
     phone_input = st.text_input("Enter Customer Phone Number")
@@ -148,16 +187,13 @@ elif menu == "👤 Customer Record":
             cust = matching.iloc[0]
             st.success(f"**{cust['name']}** (ID: {cust['customer_id']})")
             st.write(f"**Points:** {cust['total_points']} | **Birthday:** {cust['birthday']}")
-            
-            # Show transaction history
             cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
             if not cust_trans.empty:
-                st.write("**Transaction History**")
                 st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
             else:
                 st.info("No transactions yet.")
         else:
-            st.error("Customer not found with this phone number.")
+            st.error("Customer not found.")
 
 # ================== REDEEM REWARD ==================
 elif menu == "🎟️ Redeem Reward":
@@ -225,7 +261,7 @@ elif menu == "🎟️ Redeem Reward":
         else:
             st.error("Customer not found.")
 
-# ================== BIRTHDAY NOTIFICATIONS (Fixed) ==================
+# ================== BIRTHDAY NOTIFICATIONS ==================
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
     if customers.empty:
@@ -237,8 +273,7 @@ elif menu == "🎂 Birthday Notifications":
         upcoming = []
         
         for _, cust in customers.iterrows():
-            if pd.isna(cust['birthday']): 
-                continue
+            if pd.isna(cust['birthday']): continue
             b_date = pd.to_datetime(cust['birthday']).date()
             b_month = b_date.month
             b_day = b_date.day
@@ -253,10 +288,8 @@ elif menu == "🎂 Birthday Notifications":
                 days_until = (this_year_bday - today).days
                 if 1 <= days_until <= 7:
                     upcoming.append({
-                        'name': cust['name'], 
-                        'phone': cust['phone'],
-                        'birthday': b_date, 
-                        'days_left': days_until
+                        'name': cust['name'], 'phone': cust['phone'],
+                        'birthday': b_date, 'days_left': days_until
                     })
             except:
                 continue
@@ -264,15 +297,13 @@ elif menu == "🎂 Birthday Notifications":
         st.write("### 🎉 Birthdays Today")
         if today_birthdays:
             st.success(f"**{len(today_birthdays)} customer(s) celebrating today!**")
-            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']], use_container_width=True)
+            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']])
         else:
             st.info("No birthdays today.")
         
-        st.write("### 📅 Upcoming Birthdays (Next 7 Days)")
+        st.write("### 📅 Upcoming (Next 7 Days)")
         if upcoming:
-            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'), use_container_width=True)
-        else:
-            st.info("No upcoming birthdays in the next 7 days.")
+            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
 # ================== SEARCH & REPORTS ==================
 elif menu == "🔍 Search":
@@ -287,11 +318,10 @@ elif menu == "🔍 Search":
 
 elif menu == "📊 Reports":
     st.subheader("📊 Reports")
-    st.info("Please go to Reports section for all business reports.")
+    st.info("Reports section coming soon (with admin download).")
 
 st.sidebar.info("""
-**We Time CRM v2.4**
-• Customer Record Fixed
-• Birthday Notifications Fixed
-• Admin Password: wetimemanagement2026
+**We Time CRM v2.6**
+• Adjust Points available to all staff
+• Admin only for download
 """)
