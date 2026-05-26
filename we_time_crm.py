@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS TO YOUR SECURE PASSWORD
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -138,6 +138,27 @@ elif menu == "💰 Record Spending":
         else:
             st.error("Customer not found.")
 
+# ================== CUSTOMER RECORD (Fixed) ==================
+elif menu == "👤 Customer Record":
+    st.subheader("👤 Customer Full Record")
+    phone_input = st.text_input("Enter Customer Phone Number")
+    if phone_input:
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+        if not matching.empty:
+            cust = matching.iloc[0]
+            st.success(f"**{cust['name']}** (ID: {cust['customer_id']})")
+            st.write(f"**Points:** {cust['total_points']} | **Birthday:** {cust['birthday']}")
+            
+            # Show transaction history
+            cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
+            if not cust_trans.empty:
+                st.write("**Transaction History**")
+                st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
+            else:
+                st.info("No transactions yet.")
+        else:
+            st.error("Customer not found with this phone number.")
+
 # ================== REDEEM REWARD ==================
 elif menu == "🎟️ Redeem Reward":
     st.subheader("🎟️ Redeem Rewards")
@@ -181,6 +202,8 @@ elif menu == "🎟️ Redeem Reward":
                         customers.at[idx, 'total_points'] -= 300
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ 1 Cup Drink Redeemed!")
+                    else:
+                        st.error("Not enough points!")
             with col2:
                 if st.button("1 Hour Nintendo Switch (-500 pts)"):
                     if cust['total_points'] >= 500:
@@ -188,6 +211,8 @@ elif menu == "🎟️ Redeem Reward":
                         customers.at[idx, 'total_points'] -= 500
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ 1 Hour Nintendo Switch Redeemed!")
+                    else:
+                        st.error("Not enough points!")
             with col3:
                 if st.button("1 Hour Free Small Room (-1000 pts)"):
                     if cust['total_points'] >= 1000:
@@ -195,93 +220,78 @@ elif menu == "🎟️ Redeem Reward":
                         customers.at[idx, 'total_points'] -= 1000
                         customers.to_csv(CUSTOMERS_FILE, index=False)
                         st.success("✅ 1 Hour Free Small Room Redeemed!")
+                    else:
+                        st.error("Not enough points!")
         else:
             st.error("Customer not found.")
 
-# ================== IMPROVED REPORTS SECTION ==================
-elif menu == "📊 Reports":
-    st.subheader("📊 Business Intelligence Reports")
-    
-    report_type = st.selectbox("Select Report", [
-        "Overall Summary",
-        "Customers by Outlet",
-        "Top Spenders",
-        "Most Regular Customers",
-        "Inactive Customers (No visit > 3 months)",
-        "This Month Birthdays",
-        "Revenue by Outlet",
-        "Points Redemption Report",
-        "New Customers per Month",
-        "Voucher Redemption Rate"
-    ])
-    
-    outlet_filter = st.selectbox("Filter by Outlet", ["All"] + outlets)
-    
-    if not customers.empty:
-        # Prepare merged data
-        if not transactions.empty:
-            trans_summary = transactions.groupby('customer_id').agg({
-                'amount': 'sum',
-                'date': 'max',
-                'outlet': 'first'
-            }).reset_index()
-            trans_summary = trans_summary.rename(columns={'amount': 'total_spent', 'date': 'last_visit'})
-            report_df = customers.merge(trans_summary, on='customer_id', how='left')
-        else:
-            report_df = customers.copy()
-            report_df['total_spent'] = 0
-            report_df['last_visit'] = None
-        
-        if outlet_filter != "All":
-            report_df = report_df[report_df.get('outlet', '') == outlet_filter]
-        
-        # Report Logic
-        if report_type == "Overall Summary":
-            st.write("### Overall Summary")
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Total Customers", len(report_df))
-            col2.metric("Total Points", int(report_df['total_points'].sum()))
-            col3.metric("Total Revenue (RM)", int(report_df.get('total_spent', 0).sum()))
-            col4.metric("Active Customers", len(report_df))
-        
-        elif report_type == "Revenue by Outlet":
-            if not transactions.empty:
-                revenue = transactions.groupby('outlet')['amount'].sum().reset_index()
-                st.dataframe(revenue, use_container_width=True)
-            else:
-                st.info("No revenue data yet.")
-        
-        elif report_type == "Points Redemption Report":
-            redeemed = transactions[transactions['type'].str.contains('Redeem', na=False)]
-            st.dataframe(redeemed, use_container_width=True)
-        
-        elif report_type == "New Customers per Month":
-            customers['join_date'] = pd.to_datetime(customers['join_date'])
-            new_cust = customers.groupby(customers['join_date'].dt.to_period('M')).size()
-            st.dataframe(new_cust.reset_index(name='New Customers'), use_container_width=True)
-        
-        elif report_type == "Voucher Redemption Rate":
-            total_customers = len(customers)
-            signup_redeemed = customers['sign_up_voucher_redeemed'].sum()
-            birthday_redeemed = (customers['last_birthday_voucher_year'] == current_year).sum()
-            st.metric("Sign-up Voucher Redeemed", f"{signup_redeemed}/{total_customers}")
-            st.metric("Birthday Voucher Redeemed (This Year)", birthday_redeemed)
-        
-        else:
-            # Other reports (Top Spenders, Regular, Inactive, Birthdays)
-            st.dataframe(report_df, use_container_width=True)
-        
-        # Download Button (Admin Only)
-        if st.session_state.is_admin:
-            csv = report_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download This Report", csv, f"report_{report_type.lower().replace(' ', '_')}.csv", "text/csv")
-        else:
-            st.info("Download available only in Admin Mode.")
+# ================== BIRTHDAY NOTIFICATIONS (Fixed) ==================
+elif menu == "🎂 Birthday Notifications":
+    st.subheader("🎂 Birthday Notifications")
+    if customers.empty:
+        st.info("No customers yet.")
     else:
-        st.info("No data available yet.")
+        today_month = today.month
+        today_day = today.day
+        today_birthdays = []
+        upcoming = []
+        
+        for _, cust in customers.iterrows():
+            if pd.isna(cust['birthday']): 
+                continue
+            b_date = pd.to_datetime(cust['birthday']).date()
+            b_month = b_date.month
+            b_day = b_date.day
+            
+            if b_month == today_month and b_day == today_day:
+                today_birthdays.append(cust)
+            
+            try:
+                this_year_bday = date(today.year, b_month, b_day)
+                if this_year_bday < today:
+                    this_year_bday = date(today.year + 1, b_month, b_day)
+                days_until = (this_year_bday - today).days
+                if 1 <= days_until <= 7:
+                    upcoming.append({
+                        'name': cust['name'], 
+                        'phone': cust['phone'],
+                        'birthday': b_date, 
+                        'days_left': days_until
+                    })
+            except:
+                continue
+        
+        st.write("### 🎉 Birthdays Today")
+        if today_birthdays:
+            st.success(f"**{len(today_birthdays)} customer(s) celebrating today!**")
+            st.dataframe(pd.DataFrame(today_birthdays)[['name', 'phone', 'birthday']], use_container_width=True)
+        else:
+            st.info("No birthdays today.")
+        
+        st.write("### 📅 Upcoming Birthdays (Next 7 Days)")
+        if upcoming:
+            st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'), use_container_width=True)
+        else:
+            st.info("No upcoming birthdays in the next 7 days.")
+
+# ================== SEARCH & REPORTS ==================
+elif menu == "🔍 Search":
+    st.subheader("Search Customer")
+    search = st.text_input("Name or Phone")
+    if search:
+        results = customers[
+            customers['name'].str.contains(search, case=False, na=False) |
+            customers['phone'].str.contains(search, case=False, na=False)
+        ]
+        st.dataframe(results, use_container_width=True)
+
+elif menu == "📊 Reports":
+    st.subheader("📊 Reports")
+    st.info("Please go to Reports section for all business reports.")
 
 st.sidebar.info("""
-**We Time CRM v2.3**
-• Advanced Reports Added
-• Admin Mode for Download
+**We Time CRM v2.4**
+• Customer Record Fixed
+• Birthday Notifications Fixed
+• Admin Password: wetimemanagement2026
 """)
