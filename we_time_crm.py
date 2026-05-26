@@ -112,56 +112,57 @@ elif menu == "➕ Add New Customer":
         else:
             st.error("Name and Phone Number are required!")
 
-# ================== RECORD SPENDING (Auto Clear) ==================
+# ================== RECORD SPENDING (The version you liked) ==================
 elif menu == "💰 Record Spending":
     st.subheader("💰 Record Spending")
     
-    # Reset key to force clear form
-    if 'spending_key' not in st.session_state:
-        st.session_state.spending_key = 0
+    if 'spending_success' not in st.session_state:
+        st.session_state.spending_success = False
 
-    phone_input = st.text_input("Customer Phone Number", key=f"phone_{st.session_state.spending_key}")
-    
-    if phone_input:
-        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
-        if not matching.empty:
-            customer = matching.iloc[0]
-            st.success(f"✅ Found: **{customer['name']}** | Points: {customer['total_points']}")
-            
-            amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0, key=f"amount_{st.session_state.spending_key}")
-            outlet = st.selectbox("Outlet", outlets, key=f"outlet_{st.session_state.spending_key}")
-            notes = st.text_input("Notes", key=f"notes_{st.session_state.spending_key}")
-            
-            if st.button("Record Spending & Add Points", type="primary"):
-                if amount > 0:
-                    points = int(amount)
-                    idx = customers[customers['customer_id'] == customer['customer_id']].index[0]
-                    customers.at[idx, 'total_points'] += points
-                    customers.to_csv(CUSTOMERS_FILE, index=False)
-                    
-                    new_trans = pd.DataFrame([{
-                        'date': str(datetime.now()),
-                        'customer_id': customer['customer_id'],
-                        'type': 'Spending',
-                        'amount': amount,
-                        'points': points,
-                        'outlet': outlet,
-                        'notes': notes,
-                        'voucher_used': ''
-                    }])
-                    transactions = pd.concat([transactions, new_trans], ignore_index=True)
-                    transactions.to_csv(TRANSACTIONS_FILE, index=False)
-                    
-                    st.success(f"🎉 SUCCESS! RM{amount} recorded for **{customer['name']}** → +{points} points!")
-                    st.balloons()
-                    
-                    # Clear form
-                    st.session_state.spending_key += 1
-                    st.rerun()
-                else:
-                    st.error("Amount must be greater than 0.")
-        else:
-            st.error("Customer not found.")
+    if st.session_state.spending_success:
+        st.success("🎉 Transaction recorded successfully!")
+        st.info("Form has been cleared.")
+        if st.button("🔄 New Transaction"):
+            st.session_state.spending_success = False
+            st.rerun()
+    else:
+        phone_input = st.text_input("Customer Phone Number")
+        if phone_input:
+            matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+            if not matching.empty:
+                customer = matching.iloc[0]
+                st.success(f"✅ Found: **{customer['name']}** | Points: {customer['total_points']}")
+                
+                amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0)
+                outlet = st.selectbox("Outlet", outlets)
+                notes = st.text_input("Notes")
+                
+                if st.button("Record Spending & Add Points", type="primary"):
+                    if amount > 0:
+                        points = int(amount)
+                        idx = customers[customers['customer_id'] == customer['customer_id']].index[0]
+                        customers.at[idx, 'total_points'] += points
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        
+                        new_trans = pd.DataFrame([{
+                            'date': str(datetime.now()),
+                            'customer_id': customer['customer_id'],
+                            'type': 'Spending',
+                            'amount': amount,
+                            'points': points,
+                            'outlet': outlet,
+                            'notes': notes,
+                            'voucher_used': ''
+                        }])
+                        transactions = pd.concat([transactions, new_trans], ignore_index=True)
+                        transactions.to_csv(TRANSACTIONS_FILE, index=False)
+                        
+                        st.session_state.spending_success = True
+                        st.rerun()
+                    else:
+                        st.error("Amount must be greater than 0.")
+            else:
+                st.error("Customer not found.")
 
 # ================== ADJUST POINTS ==================
 elif menu == "🔧 Adjust Points":
@@ -201,17 +202,6 @@ elif menu == "👤 Customer Record":
             if not cust_trans.empty:
                 st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
 
-# ================== REDEEM REWARD ==================
-elif menu == "🎟️ Redeem Reward":
-    st.subheader("🎟️ Redeem Rewards")
-    phone_input = st.text_input("Customer Phone Number")
-    if phone_input:
-        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
-        if not matching.empty:
-            cust = matching.iloc[0]
-            st.write(f"**{cust['name']}** | Points: {cust['total_points']}")
-            # Vouchers and rewards can be expanded here
-
 # ================== BIRTHDAY NOTIFICATIONS ==================
 elif menu == "🎂 Birthday Notifications":
     st.subheader("🎂 Birthday Notifications")
@@ -239,10 +229,8 @@ elif menu == "🎂 Birthday Notifications":
                 days_until = (this_year_bday - today).days
                 if 1 <= days_until <= 7:
                     upcoming.append({
-                        'name': cust['name'],
-                        'phone': cust['phone'],
-                        'birthday': b_date,
-                        'days_left': days_until
+                        'name': cust['name'], 'phone': cust['phone'],
+                        'birthday': b_date, 'days_left': days_until
                     })
             except:
                 continue
@@ -259,8 +247,7 @@ elif menu == "🎂 Birthday Notifications":
             st.dataframe(pd.DataFrame(upcoming).sort_values('days_left'))
 
 st.sidebar.info("""
-**We Time CRM v3.8 - Final**
-• Record Spending clears after success
+**We Time CRM v3.9**
+• Record Spending clears after success (as you liked)
 • Birthday Notifications working
-• All features included
 """)
