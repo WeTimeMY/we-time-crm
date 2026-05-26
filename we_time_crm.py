@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS TO YOUR OWN PASSWORD!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS PASSWORD!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -80,7 +80,7 @@ if menu == "🏠 Dashboard":
     col2.metric("Total Points", int(customers['total_points'].sum()) if not customers.empty else 0)
     col3.metric("Outlets", len(outlets))
 
-# ================== ADD NEW CUSTOMER (Duplicate Check) ==================
+# ================== ADD NEW CUSTOMER ==================
 elif menu == "➕ Add New Customer":
     st.subheader("Register New Customer")
     col1, col2 = st.columns(2)
@@ -97,7 +97,7 @@ elif menu == "➕ Add New Customer":
             phone_clean = phone.strip()
             existing = customers[customers['phone'].str.contains(phone_clean, case=False, na=False)]
             if not existing.empty:
-                st.error(f"❌ Phone number already exists! ({existing.iloc[0]['name']})")
+                st.error(f"❌ Phone number already registered! ({existing.iloc[0]['name']})")
             else:
                 new_id = 1000 + len(customers) + 1
                 new_row = pd.DataFrame([{
@@ -112,23 +112,21 @@ elif menu == "➕ Add New Customer":
         else:
             st.error("Name and Phone Number are required!")
 
-# ================== RECORD SPENDING (Auto Clear + Success Message) ==================
+# ================== RECORD SPENDING (Fixed - Clears after success) ==================
 elif menu == "💰 Record Spending":
     st.subheader("💰 Record Spending")
     
-    if 'last_transaction' not in st.session_state:
-        st.session_state.last_transaction = None
-
-    phone_input = st.text_input("Customer Phone Number", key="spending_phone")
+    phone_input = st.text_input("Customer Phone Number", key="spend_phone")
+    
     if phone_input:
         matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
         if not matching.empty:
             customer = matching.iloc[0]
             st.success(f"✅ Found: **{customer['name']}** | Points: {customer['total_points']}")
             
-            amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0, key="spending_amount")
-            outlet = st.selectbox("Outlet", outlets, key="spending_outlet")
-            notes = st.text_input("Notes", key="spending_notes")
+            amount = st.number_input("Spending Amount (RM)", min_value=0.0, step=1.0, key="spend_amount")
+            outlet = st.selectbox("Outlet", outlets, key="spend_outlet")
+            notes = st.text_input("Notes", key="spend_notes")
             
             if st.button("Record Spending & Add Points", type="primary"):
                 if amount > 0:
@@ -150,16 +148,13 @@ elif menu == "💰 Record Spending":
                     transactions = pd.concat([transactions, new_trans], ignore_index=True)
                     transactions.to_csv(TRANSACTIONS_FILE, index=False)
                     
-                    st.success(f"🎉 SUCCESS! RM{amount} recorded for {customer['name']}! +{points} points added.")
-                    st.session_state.last_transaction = customer['name']
-                    st.rerun()
+                    st.success(f"🎉 SUCCESS! RM{amount} recorded for **{customer['name']}** → +{points} points added!")
+                    st.balloons()
+                    st.rerun()   # This clears the form
                 else:
-                    st.error("Amount must be greater than 0.")
+                    st.error("Please enter amount > 0")
         else:
             st.error("Customer not found.")
-
-    if st.session_state.last_transaction:
-        st.info(f"Last transaction recorded for: **{st.session_state.last_transaction}**")
 
 # ================== ADJUST POINTS ==================
 elif menu == "🔧 Adjust Points":
@@ -171,7 +166,7 @@ elif menu == "🔧 Adjust Points":
             cust = matching.iloc[0]
             st.success(f"Customer: **{cust['name']}** | Current Points: **{cust['total_points']}**")
             
-            adjustment = st.number_input("Points to Adjust", value=0, step=1, help="Use negative to deduct")
+            adjustment = st.number_input("Points to Adjust", value=0, step=1, help="Negative = Deduct")
             reason = st.text_input("Reason", "Correction")
             
             if st.button("Apply Adjustment", type="primary"):
@@ -189,7 +184,7 @@ elif menu == "🔧 Adjust Points":
                     }])
                     transactions = pd.concat([transactions, new_trans], ignore_index=True)
                     transactions.to_csv(TRANSACTIONS_FILE, index=False)
-                    st.success(f"✅ Points changed from {old} to {new}")
+                    st.success(f"✅ Changed from {old} to {new}")
                 else:
                     st.warning("No change made.")
         else:
@@ -204,7 +199,7 @@ elif menu == "👤 Customer Record":
         if not matching.empty:
             cust = matching.iloc[0]
             st.success(f"**{cust['name']}** (ID: {cust['customer_id']})")
-            st.write(f"**Points:** {cust['total_points']} | **Birthday:** {cust['birthday']}")
+            st.write(f"Points: {cust['total_points']} | Birthday: {cust['birthday']}")
             cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
             if not cust_trans.empty:
                 st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
@@ -328,11 +323,10 @@ elif menu == "🔍 Search":
 # ================== REPORTS ==================
 elif menu == "📊 Reports":
     st.subheader("📊 Reports")
-    st.info("Advanced reports are available in Admin Mode.")
+    st.info("Reports section coming in next update.")
 
 st.sidebar.info("""
-**We Time CRM v3.3**
-• Record Spending now clears after success
+**We Time CRM v3.4**
+• Record Spending clears after success
 • Duplicate prevention active
-• Full stable version
 """)
