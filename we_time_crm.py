@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS PASSWORD!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -295,9 +295,21 @@ elif menu == "🎂 Birthday Notifications":
         else:
             st.info("No upcoming birthdays in the next 7 days.")
 
+# ================== REPORTS ==================
+elif menu == "📊 Reports":
+    st.subheader("📊 Reports")
+    if customers.empty:
+        st.info("No customer data yet.")
+    else:
+        st.dataframe(customers, use_container_width=True)
+        if st.session_state.is_admin:
+            csv = customers.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Customer List", csv, "we_time_customers.csv", "text/csv")
+        else:
+            st.info("Download available only in Admin Mode.")
+
 st.sidebar.info("""
-**We Time CRM v4.3 - Final**
+**We Time CRM v4.3**
 • All pages included
-• Record Spending & Adjust Points clear after success
-• Birthday Notifications working
+• Reports page restored
 """)
