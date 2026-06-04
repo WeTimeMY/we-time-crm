@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS PASSWORD!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -31,7 +31,6 @@ with st.sidebar:
 CUSTOMERS_FILE = "customers.csv"
 TRANSACTIONS_FILE = "transactions.csv"
 
-# Robust Data Loading
 def load_customers():
     if os.path.exists(CUSTOMERS_FILE):
         try:
@@ -40,6 +39,10 @@ def load_customers():
             df['name'] = df['name'].astype(str).str.strip()
             if 'birthday' in df.columns:
                 df['birthday'] = pd.to_datetime(df['birthday'], errors='coerce').dt.date
+            if 'last_birthday_voucher_year' not in df.columns:
+                df['last_birthday_voucher_year'] = 0
+            if 'sign_up_voucher_redeemed' not in df.columns:
+                df['sign_up_voucher_redeemed'] = False
             return df
         except Exception as e:
             st.error(f"Error loading customers: {e}")
@@ -123,7 +126,7 @@ elif menu == "💰 Record Spending":
 
     if st.session_state.spending_success:
         st.success("🎉 Transaction recorded successfully!")
-        st.info("Form cleared.")
+        st.info("Form has been cleared.")
         if st.button("🔄 New Transaction"):
             st.session_state.spending_success = False
             st.rerun()
@@ -170,7 +173,7 @@ elif menu == "🔧 Adjust Points":
 
     if st.session_state.adjust_success:
         st.success("✅ Points adjusted successfully!")
-        st.info("Form cleared.")
+        st.info("Form has been cleared.")
         if st.button("🔄 New Adjustment"):
             st.session_state.adjust_success = False
             st.rerun()
@@ -249,7 +252,7 @@ elif menu == "🎂 Birthday Notifications":
             st.info("No upcoming birthdays in the next 7 days.")
 
 st.sidebar.info("""
-**We Time CRM v4.3 - Final Stable Version**
+**We Time CRM v4.3**
+• Stable version
 • All features included
-• Data loading improved
-""")ustomers you should have.")
+""")
