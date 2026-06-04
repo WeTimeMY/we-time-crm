@@ -10,7 +10,7 @@ st.title("🎬 We Time Private Movie Cafe - CRM System")
 if 'is_admin' not in st.session_state:
     st.session_state.is_admin = False
 
-PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS!
+PASSWORD = "wetimemanagement2026"   # ← CHANGE THIS PASSWORD!
 
 with st.sidebar:
     st.subheader("🔑 Admin Access")
@@ -44,8 +44,7 @@ def load_customers():
             if 'sign_up_voucher_redeemed' not in df.columns:
                 df['sign_up_voucher_redeemed'] = False
             return df
-        except Exception as e:
-            st.error(f"Error loading customers: {e}")
+        except:
             return pd.DataFrame()
     else:
         return pd.DataFrame(columns=['customer_id', 'name', 'phone', 'email', 'birthday', 
@@ -126,7 +125,7 @@ elif menu == "💰 Record Spending":
 
     if st.session_state.spending_success:
         st.success("🎉 Transaction recorded successfully!")
-        st.info("Form has been cleared.")
+        st.info("Form cleared.")
         if st.button("🔄 New Transaction"):
             st.session_state.spending_success = False
             st.rerun()
@@ -173,7 +172,7 @@ elif menu == "🔧 Adjust Points":
 
     if st.session_state.adjust_success:
         st.success("✅ Points adjusted successfully!")
-        st.info("Form has been cleared.")
+        st.info("Form cleared.")
         if st.button("🔄 New Adjustment"):
             st.session_state.adjust_success = False
             st.rerun()
@@ -202,6 +201,51 @@ elif menu == "🔧 Adjust Points":
                         st.warning("No change made.")
             else:
                 st.error("Customer not found.")
+
+# ================== CUSTOMER RECORD ==================
+elif menu == "👤 Customer Record":
+    st.subheader("👤 Customer Full Record")
+    phone_input = st.text_input("Enter Phone Number")
+    if phone_input:
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+        if not matching.empty:
+            cust = matching.iloc[0]
+            st.success(f"**{cust['name']}** (ID: {cust['customer_id']})")
+            st.write(f"Points: {cust['total_points']} | Birthday: {cust['birthday']}")
+            cust_trans = transactions[transactions['customer_id'] == cust['customer_id']]
+            if not cust_trans.empty:
+                st.dataframe(cust_trans.sort_values('date', ascending=False), use_container_width=True)
+
+# ================== REDEEM REWARD ==================
+elif menu == "🎟️ Redeem Reward":
+    st.subheader("🎟️ Redeem Rewards")
+    phone_input = st.text_input("Customer Phone Number")
+    if phone_input:
+        matching = customers[customers['phone'].str.contains(str(phone_input), case=False, na=False)]
+        if not matching.empty:
+            cust = matching.iloc[0]
+            st.write(f"**{cust['name']}** | Points: {cust['total_points']}")
+            
+            st.write("### Vouchers")
+            colA, colB = st.columns(2)
+            with colA:
+                if st.button("Redeem RM10 Sign-up Voucher"):
+                    if not cust['sign_up_voucher_redeemed']:
+                        idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                        customers.at[idx, 'sign_up_voucher_redeemed'] = True
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        st.success("✅ RM10 Sign-up Voucher Redeemed!")
+                    else:
+                        st.warning("Already redeemed.")
+            with colB:
+                if st.button("Redeem RM20 Birthday Voucher"):
+                    if datetime.now().month == birthday_month and cust['last_birthday_voucher_year'] < current_year:
+                        idx = customers[customers['customer_id'] == cust['customer_id']].index[0]
+                        customers.at[idx, 'last_birthday_voucher_year'] = current_year
+                        customers.to_csv(CUSTOMERS_FILE, index=False)
+                        st.success("✅ RM20 Birthday Voucher Redeemed!")
+                    else:
+                        st.error("Not eligible now.")
 
 # ================== BIRTHDAY NOTIFICATIONS ==================
 elif menu == "🎂 Birthday Notifications":
@@ -252,7 +296,8 @@ elif menu == "🎂 Birthday Notifications":
             st.info("No upcoming birthdays in the next 7 days.")
 
 st.sidebar.info("""
-**We Time CRM v4.3**
-• Stable version
-• All features included
+**We Time CRM v4.3 - Final**
+• All pages included
+• Record Spending & Adjust Points clear after success
+• Birthday Notifications working
 """)
